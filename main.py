@@ -1,28 +1,50 @@
 import taichi as ti
-
 ti.init(arch=ti.gpu)
 
-n = 320
-pixels = ti.field(dtype=float, shape=(n * 2, n))
+res = 500
+scale = 5
 
-@ti.func
-def complex_sqr(z):
-    return ti.Vector([z[0]**2 - z[1]**2, z[1] * z[0] * 2])
+pixels = ti.Vector.field(3, ti.uint8, shape = [res, res])
+sandpile = ti.field(ti.i32, shape = [int(res/scale), int(res/scale)])
+iters = 5
+
 
 @ti.kernel
-def paint(t: float):
-    for i, j in pixels:  # Parallelized over all pixels
-        c = ti.Vector([-0.8, ti.cos(t) * 0.2])
-        z = ti.Vector([i / n - 1, j / n - 0.5]) * 2
-        iterations = 0
-        while z.norm() < 20 and iterations < 50:
-            z = complex_sqr(z) + c
-            iterations += 1
-        pixels[i, j] = 1 - iterations * 0.02
+def throw_sand():
+    sandpile[int(res/scale)/2+0.5, int(res/scale)/2+0.5] += 1
 
-gui = ti.GUI("Julia Set", res=(n * 2, n))
+@ti.kernel
+def render():
+    color = 0xE7E0AA
+    for i, j in pixels:
+        if sandpile[i/5, j/5] == 0:
+            pixels[i, j] = [171, 182, 155]
+        elif sandpile[i/5, j/5] == 1:
+            pixels[i, j] = [234, 0, 118]
+        elif sandpile[i/5, j/5] == 2:
+            pixels[i, j] = [230, 178, 0]
+        elif sandpile[i/5, j/5] == 3:
+            pixels[i, j] = [0, 81, 28]
 
-for i in range(1000000):
-    paint(i * 0.03)
-    gui.set_image(pixels)
-    gui.show()
+@ti.kernel
+def evolve():
+    for i, j in sandpile:
+        if sandpile[i, j] >= 4:
+            sandpile[i + 1, j] += sandpile[i, j] / 4
+            sandpile[i - 1, j] += sandpile[i, j] / 4
+            sandpile[i, j - 1] += sandpile[i, j] / 4
+            sandpile[i, j + 1] += sandpile[i, j] / 4
+            sandpile[i, j] = 0
+
+def main():
+    gui = ti.GUI("SandPile Model", res)
+    while gui.running:
+        for j in range(iters):
+            throw_sand()
+            evolve()
+        render()
+        gui.set_image(pixels)
+        gui.show()
+
+if __name__ == '__main__':
+    main()
