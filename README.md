@@ -67,3 +67,6 @@ if __name__ == '__main__':
 随时间增加，会逐渐失去对称性，尚没有找到解决方法
 
 ## 代码链接
+
+[Code](https://github.com/darkwuta/2021_taichi_course_homework)
+
